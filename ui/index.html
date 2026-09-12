@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Hiver × SpotifyCares — Support Agent</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="/static/styles.css?v=4" />
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="dot"></span>
+      <span>Hiver × SpotifyCares</span>
+      <span class="pill">Support Agent</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="left">
+      <div class="card">
+        <h2>Incoming tweet</h2>
+        <div class="chips" id="samples"></div>
+        <textarea id="tweet" rows="4" placeholder="@SpotifyCares my premium won't play today…"></textarea>
+        <button id="run">Run agent</button>
+      </div>
+
+      <div class="card reply-card hidden" id="reply-card">
+        <h2>Drafted reply</h2>
+        <div class="reply" id="reply"></div>
+        <div class="reply-meta" id="reply-meta"></div>
+      </div>
+    </section>
+
+    <section class="right">
+      <h2>Pipeline</h2>
+
+      <div class="rail" id="rail" style="--fill: 0%">
+        <div class="step" id="step-classify" data-idx="1">
+          <span class="badge"><span>1</span></span>
+          <div class="step-head">
+            <span class="label">Classify</span>
+            <span class="status" id="s1-status">idle</span>
+          </div>
+          <div class="step-body" id="s1-body">
+            Predicts intent from 8 categories using an LLM.
+          </div>
+        </div>
+
+        <div class="step" id="step-retrieve" data-idx="2">
+          <span class="badge"><span>2</span></span>
+          <div class="step-head">
+            <span class="label">Retrieve (RAG)</span>
+            <span class="status" id="s2-status">idle</span>
+          </div>
+          <div class="step-body" id="s2-body">
+            Finds the 3 most similar past complaints and Spotify's real replies.
+          </div>
+        </div>
+
+        <div class="step" id="step-draft" data-idx="3">
+          <span class="badge"><span>3</span></span>
+          <div class="step-head">
+            <span class="label">Draft</span>
+            <span class="status" id="s3-status">idle</span>
+          </div>
+          <div class="step-body" id="s3-body">
+            Writes a new reply grounded in the retrieved past replies.
+          </div>
+        </div>
+
+        <div class="step" id="step-decide" data-idx="4">
+          <span class="badge"><span>4</span></span>
+          <div class="step-head">
+            <span class="label">Decide</span>
+            <span class="status" id="s4-status">idle</span>
+          </div>
+          <div class="step-body" id="s4-body">
+            Pure Python rules pick auto-send vs escalate, with a reason.
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <h2>Evaluation benchmark <span id="benchmark-n"></span></h2>
+    <p class="tiny" style="margin: 0 0 16px">
+      Ours vs Trivial and Strong (BM25) baselines on the hand-labelled golden set.
+      Fixed snapshot from <code>make full-eval</code> — the interactive pipeline above is a separate live demo.
+    </p>
+    <div id="benchmark" class="bench-empty">loading…</div>
+  </footer>
+
+  <script src="/static/app.js?v=5"></script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+{
+  "n": 100,
+  "systems": [
+    {
+      "name": "trivial",
+      "intent_accuracy": 0.3,
+      "intent_macro_f1": 0.058,
+      "reply_judge_avg": 3.49,
+      "escalation_f1": 0.693,
+      "judge_dimensions": {
+        "helpfulness": 2.36,
+        "groundedness": 3.65,
+        "tone_match": 3.0,
+        "safety": 4.95
+      }
+    },
+    {
+      "name": "strong",
+      "intent_accuracy": 0.48,
+      "intent_macro_f1": 0.489,
+      "reply_judge_avg": 4.728,
+      "escalation_f1": 0.172,
+      "judge_dimensions": {
+        "helpfulness": 4.1,
+        "groundedness": 4.95,
+        "tone_match": 4.94,
+        "safety": 4.92
+      }
+    },
+    {
+      "name": "ours",
+      "intent_accuracy": 0.79,
+      "intent_macro_f1": 0.78,
+      "reply_judge_avg": 4.035,
+      "escalation_f1": 0.494,
+      "judge_dimensions": {
+        "helpfulness": 3.71,
+        "groundedness": 4.1,
+        "tone_match": 4.01,
+        "safety": 4.32
+      }
+    }
+  ],
+  "cost": {
+    "n_decisions": 100,
+    "per_model": {
+      "openai/gpt-oss-120b": {
+        "calls": 368,
+        "in_tokens": 182622,
+        "out_tokens": 111062,
+        "cost": 0.0,
+        "p50_latency_ms": 4219,
+        "p95_latency_ms": 8908,
+        "cost_per_1k_decisions_usd": 0.0
+      },
+      "qwen/qwen3.8-27b": {
+        "calls": 202,
+        "in_tokens": 107226,
+        "out_tokens": 8539,
+        "cost": 0.0,
+        "p50_latency_ms": 4424,
+        "p95_latency_ms": 5541,
+        "cost_per_1k_decisions_usd": 0.0
+      },
+      "qwen/qwen3.6-27b": {
+        "calls": 3,
+        "in_tokens": 1072,
+        "out_tokens": 3595,
+        "cost": 0.0,
+        "p50_latency_ms": 3923,
+        "p95_latency_ms": 38305,
+        "cost_per_1k_decisions_usd": 0.0
+      },
+      "groq/compound-mini": {
+        "calls": 71,
+        "in_tokens": 98970,
+        "out_tokens": 31027,
+        "cost": 0.0,
+        "p50_latency_ms": 4186,
+        "p95_latency_ms": 10678,
+        "cost_per_1k_decisions_usd": 0.0
+      },
+      "openai/gpt-oss-20b": {
+        "calls": 371,
+        "in_tokens": 182845,
+        "out_tokens": 142745,
+        "cost": 0.0,
+        "p50_latency_ms": 4579,
+        "p95_latency_ms": 8019,
+        "cost_per_1k_decisions_usd": 0.0
+      }
+    },
+    "total_cost_usd": 0.0,
+    "total_cost_per_1k_decisions_usd": 0.0,
+    "breakeven_note": "cost is $0 on free tier \u2014 break-even is any auto-handle rate > 0"
+  }
+}

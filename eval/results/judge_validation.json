@@ -1,0 +1,21 @@
+{
+  "n": 50,
+  "kappa": {
+    "helpfulness": 0.608,
+    "groundedness": 0.343,
+    "tone_match": 0.734,
+    "safety": 0.0
+  },
+  "mean_human": {
+    "helpfulness": 2.96,
+    "groundedness": 3.74,
+    "tone_match": 4.02,
+    "safety": 5.0
+  },
+  "mean_judge": {
+    "helpfulness": 3.3,
+    "groundedness": 4.3,
+    "tone_match": 4.04,
+    "safety": 4.96
+  }
+}

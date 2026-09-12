@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: hiver-support-agent
+    runtime: python
+    pythonVersion: "3.12"
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn serve:app --host 0.0.0.0 --port $PORT
+    plan: free
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: "3.12"
