@@ -4,7 +4,7 @@ services:
     runtime: python
     pythonVersion: "3.12"
     buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn serve:app --host 0.0.0.0 --port $PORT
+    startCommand: python serve.py
     plan: free
     envVars:
       - key: GROQ_API_KEY
