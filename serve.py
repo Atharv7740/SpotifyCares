@@ -6,13 +6,14 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi import HTTPException
 from pydantic import BaseModel
 
 from src import config
 from src.classify import classify
 from src.decide import decide
 from src.draft import draft
-from src.retrieve import top_k_cosine
+from src.retrieve import top_k_cosine_vec
 
 app = FastAPI(title="Hiver × SpotifyCares")
 
@@ -36,6 +37,7 @@ class ClassifyOut(BaseModel):
 class RetrieveIn(BaseModel):
     tweet: str
     intent: str
+    embedding: list[float] | None = None
 
 
 class DraftIn(BaseModel):
@@ -61,7 +63,11 @@ def classify_endpoint(payload: TweetIn) -> dict:
 @app.post("/api/retrieve")
 def retrieve_endpoint(payload: RetrieveIn) -> dict:
     t0 = time.time()
-    hits = top_k_cosine(payload.tweet, k=config.RETRIEVAL_K, filter_intent=payload.intent)
+    if payload.embedding is None:
+        raise HTTPException(status_code=400, detail="embedding required; compute in-browser via @huggingface/transformers")
+    hits = top_k_cosine_vec(
+        payload.embedding, k=config.RETRIEVAL_K, filter_intent=payload.intent
+    )
     return {
         "hits": [
             {

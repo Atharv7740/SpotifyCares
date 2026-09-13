@@ -34,8 +34,9 @@ breakdown in `eval/results/cost_latency.json`.
 ## Live demo
 
 Deployed at **https://spotifycares.onrender.com** (Render free tier — the service
-cold-starts after ~15 min idle, and the first query after a cold start downloads the
-MiniLM embedding model, so the first run of the agent is slower than subsequent ones).
+cold-starts after ~15 min idle. On the first agent run the browser downloads the
+MiniLM embedding model once (~90 MB); the server does pure numpy search, so it
+stays well under the 512 MB free-tier memory limit.)
 
 ## Reproduce in <15 minutes
 
@@ -165,7 +166,13 @@ Four stages per tweet, two of which call an LLM:
 
 Judge is `openai/gpt-oss-20b` on Groq — a smaller model than the drafter (`gpt-oss-120b`). Both are OpenAI open-weights so the family is shared; what this means for reply-quality scores is discussed in REPORT §7 and §9, where the judge is validated against 50 blind human ratings.
 
-Embeddings are local via `sentence-transformers/all-MiniLM-L6-v2` (384-dim). Retrieval is `numpy` cosine similarity over the ~40k embedding matrix — a vector database is not needed at this scale.
+Embeddings are `sentence-transformers/all-MiniLM-L6-v2` (384-dim). In the
+hosted demo the same model runs **in-browser** via `@huggingface/transformers`,
+so the web server stays a thin numpy cosine-search service (no torch in the
+web process — keeps Render's free 512 MB limit happy). The CLI/eval path still
+embeds locally with the full `sentence-transformers` package. Retrieval is
+`numpy` cosine similarity over the ~40k embedding matrix — a vector database
+is not needed at this scale.
 
 Every LLM call is cached to `data/processed/llm_cache.sqlite` keyed on `SHA256(provider|model|prompt|schema)`, so `make demo` reproduces the same numbers across runs and iteration is free after the first pass.
 

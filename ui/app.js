@@ -1,4 +1,10 @@
+import { pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.0.1";
+
 const $ = (id) => document.getElementById(id);
+
+const EMBED_MODEL = "Xenova/all-MiniLM-L6-v2";
+let _embedPipeline = null;
+const _embedDtype = "fp32";
 
 const STEPS = ["classify", "retrieve", "draft", "decide"];
 
@@ -147,6 +153,18 @@ function fmtLatency(ms, cache) {
   return `${cache ? "🟢" : "🟡"} ${ms} ms`;
 }
 
+async function embedTweet(text) {
+  _embedPipeline =
+    _embedPipeline ||
+    (await pipeline("feature-extraction", EMBED_MODEL, { dtype: _embedDtype }));
+  const tensor = await _embedPipeline(text, {
+    pooling: "mean",
+    normalize: true,
+  });
+  const data = Array.isArray(tensor) ? tensor[0] : tensor;
+  return Array.from(data.data);
+}
+
 async function runAgent() {
   const tweet = $("tweet").value.trim();
   if (!tweet) return;
@@ -179,9 +197,20 @@ async function runAgent() {
         : "");
     markDone(0, cls.intent);
 
-    // Step 2 — Retrieve
+    // Step 2 — Retrieve (client-side embedding + server numpy search)
     markActive(1);
-    const rr = await post("/api/retrieve", { tweet, intent: cls.intent });
+    $(`s2-status`).textContent = "embedding…";
+    let embedding;
+    try {
+      embedding = await embedTweet(tweet);
+    } catch (e) {
+      throw new Error("client-side embedding failed: " + e.message);
+    }
+    const rr = await post("/api/retrieve", {
+      tweet,
+      intent: cls.intent,
+      embedding,
+    });
     retrieved = rr.hits;
     totalMs += rr.latency_ms || 0;
     const items = retrieved
@@ -194,7 +223,7 @@ async function runAgent() {
       )
       .join("");
     $(`s2-body`).innerHTML =
-      `<div class="tiny" style="margin-bottom:8px">${fmtLatency(rr.latency_ms, true)} · local cosine</div>` +
+      `<div class="tiny" style="margin-bottom:8px">${fmtLatency(rr.latency_ms, true)} · browser-embedded cosine</div>` +
       (items || "<i>no matches</i>");
     markDone(1, `${retrieved.length} hits`);
 
