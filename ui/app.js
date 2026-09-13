@@ -3,8 +3,15 @@ import { pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers
 const $ = (id) => document.getElementById(id);
 
 const EMBED_MODEL = "Xenova/all-MiniLM-L6-v2";
-let _embedPipeline = null;
 const _embedDtype = "fp32";
+let _embedPromise = null;
+
+function getEmbedder() {
+  if (!_embedPromise) {
+    _embedPromise = pipeline("feature-extraction", EMBED_MODEL, { dtype: _embedDtype });
+  }
+  return _embedPromise;
+}
 
 const STEPS = ["classify", "retrieve", "draft", "decide"];
 
@@ -154,15 +161,37 @@ function fmtLatency(ms, cache) {
 }
 
 async function embedTweet(text) {
-  _embedPipeline =
-    _embedPipeline ||
-    (await pipeline("feature-extraction", EMBED_MODEL, { dtype: _embedDtype }));
-  const tensor = await _embedPipeline(text, {
-    pooling: "mean",
-    normalize: true,
-  });
+  const p = await getEmbedder();
+  const tensor = await p(text, { pooling: "mean", normalize: true });
   const data = Array.isArray(tensor) ? tensor[0] : tensor;
   return Array.from(data.data);
+}
+
+async function warmup() {
+  const wrap = $("warmup");
+  const dot = $("warmup-dot");
+  const txt = $("warmup-text");
+  wrap.style.display = "block";
+  const t0 = performance.now();
+
+  txt.textContent = "waking service on Render free tier (first visit only, up to ~30 s)…";
+  try {
+    await fetch("/healthz", { cache: "no-store" });
+  } catch (_) {}
+
+  txt.textContent = "backend ready. downloading embedder (all-MiniLM-L6-v2, ~90 MB, one-time)…";
+  try {
+    await getEmbedder();
+  } catch (e) {
+    dot.style.background = "#ef4444";
+    txt.textContent = "embedder load failed — Run agent will retry.";
+    return;
+  }
+
+  const secs = Math.round((performance.now() - t0) / 1000);
+  dot.style.background = "#22c55e";
+  txt.textContent = `ready in ${secs}s — click Run agent.`;
+  setTimeout(() => (wrap.style.display = "none"), 4500);
 }
 
 async function runAgent() {
@@ -322,3 +351,4 @@ function esc(s) {
 $("run").addEventListener("click", runAgent);
 loadSamples();
 loadMetrics();
+warmup();

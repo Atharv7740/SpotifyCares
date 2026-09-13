@@ -14,16 +14,16 @@ What "good" means for this brand, in priority order:
 1. Never invent a policy or refund promise.
 2. Escalate every sensitive-keyword tweet (refund, legal, minor, hack) even at the cost of some precision.
 3. Match Spotify's real voice on the auto-handled tail.
-4. Stay cheap enough to be deployable ($0 on free tier for this project).
+4. Stay cheap enough to be deployable (\$0 on free tier for this project).
 
 What I chose **not** to build:
 - No multilingual handling. ~11% of the dataset is non-English; the pipeline emits `"other"` on those and escalates.
 - No live account lookup, no CRM integration. Retrieval is over public reply history only.
 - No image or link content understanding.
-- No fine-tuning. Well-anchored RAG over the brand's own historical replies is a stronger fit at this data scale, without the operational cost of training and versioning a checkpoint.
+- No fine-tuning. RAG over the brand's own historical replies is a stronger fit at this data scale, without the operational cost of training and versioning a checkpoint.
 - No vector database. `numpy` cosine similarity over the ~40k embedding matrix is fast enough and needs no additional dependency; a vector DB would be the right call at ~100k+ vectors.
 
-A FastAPI + vanilla-JS demo UI is included under `make ui` as a visualisation of the pipeline. It does not gate reproducibility — `make demo` reproduces the headline table without touching the UI.
+A FastAPI + vanilla-JS demo UI is included under `make ui` as a visualisation of the pipeline. It does not gate reproducibility: `make demo` reproduces the headline table without touching the UI.
 
 ## 2. Data and taxonomy
 
@@ -48,7 +48,7 @@ Definitions are in `data/processed/intent_definitions.md`.
 Four stages per tweet; two of them call an LLM:
 
 1. **Classify** — GPT-OSS 120B via Groq returns `{intent, confidence, secondary, reasoning}`.
-2. **Retrieve** — cosine similarity on 384-dim local embeddings (`all-MiniLM-L6-v2`) against the full
+2. **Retrieve** — cosine similarity on 384-dim MiniLM embeddings (`all-MiniLM-L6-v2`; local `sentence-transformers` on CLI/eval, in-browser ONNX on the demo UI) against the full
    thread corpus, top-3, intent-filtered.
 3. **Draft** — GPT-OSS 120B grounds a reply in the retrieved pairs and returns
    `{reply, grounded_in, confidence}`. `grounded_in` cites which retrieved thread IDs the model drew from.
@@ -63,13 +63,13 @@ Escalation triggers (checked in order):
 
 Rules are checked in order; first hit wins. Every escalation records the specific rule fired, so any decision is auditable.
 
-**Judge model:** `openai/gpt-oss-20b` on Groq — a different, smaller model from
-the drafter (`gpt-oss-120b`). Both are OpenAI open-weights so the family is
-shared; the honest disclosure of this and its impact on the reply-quality
-column is in §7 and §9 (the actual judge-vs-human κ turns out to be
-substantial on tone and helpfulness, weak on groundedness — see §9).
+**Judge model:** `openai/gpt-oss-20b` on Groq, a smaller model than the
+drafter (`gpt-oss-120b`). Both are OpenAI open-weights so the family is
+shared; the disclosure of this and its impact on the reply-quality
+column is in §7 and §9. The actual judge-vs-human κ turns out to be
+substantial on tone and helpfulness, weak on groundedness (see §9).
 
-**LLM cache:** every call SHA-256 keyed on `provider|model|prompt|schema` and stored in SQLite. `make demo` reproduces the same numbers across runs and costs $0 to iterate on after the first pass.
+**LLM cache:** every call SHA-256 keyed on `provider|model|prompt|schema` and stored in SQLite. `make demo` reproduces the same numbers across runs and costs \$0 to iterate on after the first pass.
 
 ## 4. Baselines
 
@@ -87,7 +87,7 @@ Sampling was stratified across the 8 intents from `src/intents.py`, seed
 = 42 for reproducibility. Distribution: `feedback` 57, `other` 33,
 `subscription_billing` 32, `account_management` 20, `playback_bug` 19,
 `login_access` 17, `content_availability` 17, `cancel_refund` 5.
-`cancel_refund` is genuinely rare in this dataset — one bad prediction
+`cancel_refund` is genuinely rare in this dataset, and one bad prediction
 in that class moves per-class F1 by ~20 points. I chose to disclose that
 noise rather than force parity by keyword-filtering additional refund
 tweets into the sample.
@@ -104,12 +104,12 @@ Numbers are exactly as produced by the eval script.
 
 | system  | intent acc | intent macro-F1 | reply (judge avg) | escalation F1 | cost / 1k | p50 latency |
 |---------|-----------:|----------------:|------------------:|--------------:|----------:|------------:|
-| trivial | 0.30       | 0.06            | 3.49              | 0.69          | $0.00     | ~5 ms       |
-| strong  | 0.48       | 0.49            | 4.73              | 0.17          | $0.00     | ~40 ms      |
+| trivial | 0.30       | 0.06            | 3.49              | 0.69          | \$0.00     | ~5 ms       |
+| strong  | 0.48       | 0.49            | 4.73              | 0.17          | \$0.00     | ~40 ms      |
 | ours    | **0.79**   | **0.78**        | 4.04              | 0.49          | free tier | ≈8400 ms    |
 
 - Ours leads Intent Acc by 31 points over Strong and 49 over Trivial. Macro-F1 gap is similar (+29 over Strong, +72 over Trivial).
-- Strong's higher Reply (judge) score of 4.73 reflects that its reply is Spotify's actual past reply reused verbatim — see §7 for the caveat this puts on the column. On any new tweet where the reused past reply is a poor fit for the current context, Strong is silently wrong; its 0.48 intent accuracy is the honest measure of that mismatch rate.
+- Strong's higher Reply (judge) score of 4.73 reflects that its reply is Spotify's actual past reply reused verbatim; see §7 for the caveat this puts on the column. On any new tweet where the reused past reply is a poor fit for the current context, Strong is quietly wrong, and its 0.48 intent accuracy is the fair measure of that mismatch rate.
 - Trivial's Escalation F1 lead comes from always escalating, which maxes recall on the `should_escalate=true` class at the cost of any precision. Ours is close (0.49 vs 0.69) but preserves precision on the auto-handle side. Strong is much lower (0.17) because BM25's inferred intent misroutes too many tweets to auto.
 - Per-dimension judge scores for Ours: helpfulness 3.71, groundedness 4.10, tone_match 4.01, safety 4.32.
 
@@ -124,19 +124,19 @@ Confusion matrix at `eval/results/confusion.json`. Full cost + latency at `eval/
   the reply-quality metric never sees them; the system's real performance on
   non-English inputs is unknown.
 - **The Strong (BM25) baseline beats us on Reply (judge)** because its
-  "reply" is Spotify's actual past reply verbatim — of course a judge scores
+  "reply" is Spotify's actual past reply verbatim. Of course a judge scores
   it high on tone and groundedness. That column overstates Strong's
   real-world usefulness; on any tweet where the past reply is a bad fit for
-  the new context, Strong is silently wrong. Its low intent accuracy is the
-  honest measure of that.
+  the new context, Strong is quietly wrong. Its low intent accuracy is the
+  fair measure of that.
 - **Judge is only trustworthy on some dimensions.** I blind-rated 50
   replies and computed Cohen's κ against the LLM judge per dimension.
   Results in §9: **tone_match κ = 0.73** (substantial), **helpfulness
-  κ = 0.61** (substantial), **groundedness κ = 0.34** (weak-moderate —
-  the judge is more generous than I was on this dimension), **safety
+  κ = 0.61** (substantial), **groundedness κ = 0.34** (weak-moderate, with
+  the judge more generous than I was on this dimension), **safety
   κ = 0.00** (ceiling effect, not disagreement). The per-dimension
   breakdown for ours (3.71 / 4.10 / 4.01 / 4.32) should be read with
-  these caveats in mind — the aggregate reply-quality average leans on
+  these caveats in mind; the aggregate reply-quality average leans on
   the more reliable dimensions.
 - **The judge scores against one reference; the draft sees three.**
   The drafting prompt receives all top-3 retrieved pairs, but
@@ -145,11 +145,11 @@ Confusion matrix at `eval/results/confusion.json`. Full cost + latency at `eval/
   on a spot-check). So a reply correctly grounded in example #2 or #3
   can be marked down on groundedness. The 50 human ratings were done
   against all three references, which partly explains the weak
-  groundedness κ (0.34) — judge and human score against different
+  groundedness κ (0.34): judge and human score against different
   reference sets.
 - **n=100 for the judge eval is meaningful but not the full 200.**
-  Confidence intervals on per-system averages are ±0.10 at n=100 —
-  tighter than the earlier pass at a smaller n. The intent-accuracy gap
+  Confidence intervals on per-system averages are ±0.10 at n=100, tighter
+  than the earlier pass at a smaller n. The intent-accuracy gap
   (ours 0.79 vs strong 0.48) is well above noise. The reply-quality gap
   (ours 4.04 vs strong 4.73) is smaller and should be read together with
   the verbatim-reply caveat two bullets up.
@@ -167,7 +167,7 @@ Confusion matrix at `eval/results/confusion.json`. Full cost + latency at `eval/
 Drawn from the confusion matrix on the n=100 eval (see
 `eval/results/confusion.json`) plus reading through the mispredictions.
 
-1. **`other` leaks into `feedback`** — the largest single confusion, 4
+1. **`other` leaks into `feedback`.** The largest single confusion, 4
    times. These are mid-thread fragments with faintly-opinion-shaped
    text ("So there's nothing I can do. This is the dumbest thing I've
    ever experienced.") that the classifier reads as feedback rather
@@ -177,29 +177,29 @@ Drawn from the confusion matrix on the n=100 eval (see
    confidence dampener when the tweet is under ~5 words or starts with
    a demonstrative ("this", "that", "it").
 
-2. **`playback_bug` leaks into `other`** — 3 cases. Short tweets like
+2. **`playback_bug` leaks into `other`.** 3 cases. Short tweets like
    "No error message. Just this." lose enough playback signal that the
    classifier retreats to `other`. Fix: pass the full customer-side
    thread context to the classifier rather than only the first tweet.
 
-3. **`account_management` gets misclassified as `login_access`** — 2
+3. **`account_management` gets misclassified as `login_access`.** 2
    cases. Real example: someone signing up with the user's email address
-   (identity abuse, gold: `account_management`) → classified as
+   (identity abuse, gold: `account_management`) got classified as
    `login_access` because "sign in" phrasing triggers the login
    examples. Fix: sharpen the classifier prompt's `login_access` to
    require "user cannot sign in", not any sign-in-adjacent language.
 
-4. **`account_management` vs `content_availability`** — 2 cases where
+4. **`account_management` vs `content_availability`.** 2 cases where
    an account-facing request about a library or region got parsed as
    content availability. Fix: after the initial classification, run a
    quick secondary check on `feedback` and `account_management` with
    explicit disambiguation examples.
 
-5. **Escalation regex over-triggers on the word "kid"** — a tweet like
+5. **Escalation regex over-triggers on the word "kid".** A tweet like
    "my kid loves the app" would false-positive on the sensitive-keyword
    rule. Not in the n=100 sample but the regex is intentionally
    aggressive. Fix: narrow to `\bmy (kid|child)\b` with a positive-tone
-   sentiment check — would drop the false-escalation rate on feedback
+   sentiment check. Would drop the false-escalation rate on feedback
    tweets that happen to mention family.
 
 ## 9. Judge validation
@@ -216,23 +216,23 @@ Cohen's κ against the judge, per dimension:
 | safety        | 0.00               | 5.00       | 4.96       | meaningless (ceiling)         |
 
 Interpretation:
-- **Helpfulness (κ = 0.61)** — substantial agreement. The judge tends to
+- **Helpfulness (κ = 0.61).** Substantial agreement. The judge tends to
   be slightly more generous than I was (3.30 vs 2.96 mean) but per-item
   disagreement is small. Trustworthy.
-- **Tone_match (κ = 0.73)** — the highest agreement in the table.
+- **Tone_match (κ = 0.73).** The highest agreement in the table.
   Means are essentially identical (4.02 vs 4.04). The tone column is
   the most reliable dimension in the benchmark.
-- **Groundedness (κ = 0.34)** — the weakest dimension. The judge is
+- **Groundedness (κ = 0.34).** The weakest dimension. The judge is
   meaningfully more generous (4.30 vs 3.74) and per-item agreement is
   weak-moderate. The judge is likely too forgiving on replies that stay
   in Spotify's voice without actually anchoring to the retrieved
   reference. Read the groundedness column as directional, not
   calibrated.
-- **Safety (κ = 0.00)** — I rated every reply 5 on safety and the judge
+- **Safety (κ = 0.00).** I rated every reply 5 on safety and the judge
   rated 47 of 50 as 5. Cohen's κ collapses to zero when both raters
   cluster at the ceiling, which doesn't mean disagreement; it means
-  "there aren't enough safety failures in the sample to measure
-  agreement." Would need a red-team sample to validate safety properly.
+  there aren't enough safety failures in the sample to measure
+  agreement. Would need a red-team sample to validate safety properly.
 
 Raw ratings at `eval/results/human_ratings.jsonl`. κ computation
 implementation in `eval/judge_validation.py`; output in
@@ -240,28 +240,29 @@ implementation in `eval/judge_validation.py`; output in
 
 ## 10. Cost and latency
 
-**Total dollar spend during this project: $0.** All LLM calls ran on
-Groq's free tier across five models (`openai/gpt-oss-120b` for
-classify/draft, `openai/gpt-oss-20b` for judge, `qwen/qwen3.8-27b`,
-`qwen/qwen3.6-27b` (3 calls), and `groq/compound-mini` used earlier in iteration —
-see the per-model call counts in `eval/results/cost_latency.json`).
+**Total dollar spend during this project: \$0.** All LLM calls ran on
+Groq's free tier across five models: `openai/gpt-oss-120b` for
+classify/draft, `openai/gpt-oss-20b` for judge, and `qwen/qwen3.8-27b`,
+`qwen/qwen3.6-27b` (3 calls), and `groq/compound-mini` used earlier in
+iteration. See the per-model call counts in `eval/results/cost_latency.json`.
 
-Cost per 1000 auto-handled tweets on production traffic: **$0.00** at
-free tier. On Groq's paid Dev tier ($0.15 / M input tokens, $0.60 / M
+Cost per 1000 auto-handled tweets on production traffic: **\$0.00** at
+free tier. On Groq's paid Dev tier (\$0.15 / M input tokens, \$0.60 / M
 output tokens for gpt-oss-120b), the per-decision cost would be
-~$0.0002 per tweet, so **~$0.20 per 1000 tweets**. Break-even against
-a $2/human-ticket cost baseline: any non-trivial auto-handle rate
+~\$0.0002 per tweet, so **~\$0.20 per 1000 tweets**. Break-even against
+a \$2/human-ticket cost baseline: any non-trivial auto-handle rate
 clears it.
 
 Latency (`eval/results/cost_latency.json`, n=100 decisions, cold cache, per model):
-- `openai/gpt-oss-120b` (serves both classify and draft — two calls per tweet): p50 **4219 ms**, p95 8908 ms
+- `openai/gpt-oss-120b` (serves both classify and draft, two calls per tweet): p50 **4219 ms**, p95 8908 ms
 - Retrieve (local numpy cosine): ~8 ms per query (local approximation, not in the JSON)
 - Judge (`openai/gpt-oss-20b`, offline only): p50 **4579 ms**, p95 8019 ms
 
 Real end-to-end for `ours` in the live pipeline is roughly **8-10
-seconds per tweet cold** (two 120b calls at p50), milliseconds on a
-warm cache. Not customer-perceptible for tweet response times (customers expect minutes), but the batch eval
-runtime is dominated by these calls.
+seconds per tweet cold** (two 120b calls at p50), and milliseconds on a
+warm cache. Not customer-perceptible for tweet response times
+(customers expect minutes), but the batch eval runtime is dominated by
+these calls.
 
 ## 11. Safety
 
@@ -275,7 +276,7 @@ checked in order, each recording the rule that fired:
 
 The sensitive keyword regex is deliberately aggressive:
 `refund|sue|lawyer|legal|hack|fraud|minor|child|kid|threat|suicide|unauthori[sz]ed|under 1[38]|dying`.
-Yes, "kid" false-positives on "my kid loves the app" (see §8) — I chose that
+"kid" false-positives on "my kid loves the app" (see §8). I chose that
 precision cost knowingly. Missing a refund or a legal complaint has an
 asymmetric downside; over-escalating a happy user does not.
 
@@ -283,12 +284,12 @@ asymmetric downside; over-escalating a happy user does not.
 or last-name in the tweet body are always labelled `should_escalate=true`,
 so the pipeline should never draft an auto-reply that echoes leaked PII
 back into a public tweet. There is no live PII scrubber on the drafter's
-output — that's a gap flagged for the "one more week" list.
+output; that's a gap flagged for the "one more week" list.
 
 **Failure default.** If any rule cannot be evaluated (e.g. classifier
 throws), the pipeline defaults to escalate. The failure mode is a false
-positive on escalation, not a false negative — again, asymmetric-downside
-choice.
+positive on escalation, not a false negative. Same asymmetric-downside
+choice as above.
 
 **What's out of scope for this build.** Live account lookup / CRM (which
 would allow verifying identity before returning any personal info), a
@@ -310,10 +311,10 @@ Ranked by expected impact:
 3. **Cross-vendor judge.** Add a second judge from a different family
    (Gemini Flash or an Anthropic model) and report inter-judge κ per
    dimension. The current groundedness κ = 0.34 against my ratings
-   suggests groundedness scoring is genuinely noisy — a second judge
+   suggests groundedness scoring is genuinely noisy. A second judge
    would let us tell whether the noise is in the rubric or in the
    judge. The current setup uses two OpenAI-family models (120B for
-   drafting, 20B for judging) so same-family bias cannot be ruled out.
+   drafting, 20B for judging), so same-family bias cannot be ruled out.
 4. **Full customer-thread context in the classifier prompt.** The
    pipeline currently reads only the first customer message. Multi-turn
    context (all customer messages up to the prediction point) should
@@ -330,4 +331,4 @@ Ranked by expected impact:
 
 ---
 
-_Everything above is reproducible from `git clone && make setup && make full-eval` with the golden set committed. The LLM cache (`data/processed/llm_cache.sqlite`) is gitignored and rebuilds locally on first run — one round of free-tier Groq tokens — after which reruns on the same machine are byte-identical._
+_Everything above is reproducible from `git clone && make setup && make full-eval` with the golden set committed. The LLM cache (`data/processed/llm_cache.sqlite`) is gitignored and rebuilds locally on first run (one round of free-tier Groq tokens), after which reruns on the same machine are byte-identical._

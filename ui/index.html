@@ -22,6 +22,10 @@
         <div class="chips" id="samples"></div>
         <textarea id="tweet" rows="4" placeholder="@SpotifyCares my premium won't play today…"></textarea>
         <button id="run">Run agent</button>
+        <div id="warmup" class="tiny" style="margin-top:10px; color:#94a3b8; display:none;">
+          <span id="warmup-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f59e0b;margin-right:6px;vertical-align:middle;"></span>
+          <span id="warmup-text"></span>
+        </div>
       </div>
 
       <div class="card reply-card hidden" id="reply-card">
@@ -91,6 +95,6 @@
     <div id="benchmark" class="bench-empty">loading…</div>
   </footer>
 
-  <script type="module" src="/static/app.js?v=8"></script>
+  <script type="module" src="/static/app.js?v=9"></script>
 </body>
 </html>

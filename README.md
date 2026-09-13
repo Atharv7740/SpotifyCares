@@ -11,25 +11,25 @@ golden set is committed. See `REPORT.md` §6 and §7 for the details.
 
 | System        | Intent Acc | Intent macro-F1 | Reply (judge 1-5) | Escalation F1 | Cost / 1k | P50 latency |
 |---------------|-----------:|----------------:|------------------:|--------------:|----------:|------------:|
-| Trivial       |       0.30 |            0.06 |              3.49 |          0.69 |     $0.00 |      ~5 ms  |
-| Strong (BM25) |       0.48 |            0.49 |              4.73 |          0.17 |     $0.00 |     ~40 ms  |
+| Trivial       |       0.30 |            0.06 |              3.49 |          0.69 |     \$0.00 |      ~5 ms  |
+| Strong (BM25) |       0.48 |            0.49 |              4.73 |          0.17 |     \$0.00 |     ~40 ms  |
 | Ours          |   **0.79** |        **0.78** |              4.04 |          0.49 | free tier |   ≈8400 ms  |
 
 Latency cells: trivial/strong are local approximations (no network
-calls); ours derives from `eval/results/cost_latency.json` — two
+calls). Ours derives from `eval/results/cost_latency.json`: two
 `gpt-oss-120b` calls per decision at p50 4219 ms each. Details in
 REPORT.md §10.
 
 Ours leads on intent classification by 31 points on Intent Acc and 29
 points on Macro-F1 versus the Strong (BM25) baseline. Strong is ahead on
 Reply (judge) because its reply is Spotify's real past reply reused
-verbatim — that column's caveat is discussed in REPORT §7. Trivial's
+verbatim; that column's caveat is discussed in REPORT §7. Trivial's
 Escalation F1 lead comes from always escalating, which maxes recall on
 the `should_escalate=true` class at the cost of any precision.
 
 Judge-vs-human Cohen's κ (50 blind ratings I did myself, quadratic weighted):
 tone_match 0.73, helpfulness 0.61, groundedness 0.34, safety 0.00 (ceiling
-effect — both raters at 5 on nearly every reply). Full breakdown in
+effect: both raters at 5 on nearly every reply). Full breakdown in
 REPORT.md §9.
 
 Full results in `eval/results/headline.md` and `eval/results/headline.json`.
@@ -38,10 +38,11 @@ breakdown in `eval/results/cost_latency.json`.
 
 ## Live demo
 
-Deployed at **https://spotifycares.onrender.com** (Render free tier — the service
-cold-starts after ~15 min idle. On the first agent run the browser downloads the
-MiniLM embedding model once (~90 MB); the server does pure numpy search, so it
-stays well under the 512 MB free-tier memory limit.)
+Deployed at **https://spotifycares.onrender.com** (Render free tier. The
+service cold-starts after ~15 min idle; the UI shows a status pill while
+the backend wakes. On the first agent run the browser downloads the
+MiniLM embedding model once (~90 MB). The server does pure numpy search,
+so it stays under the 512 MB free-tier memory limit.)
 
 ## Reproduce in <15 minutes
 
@@ -61,8 +62,8 @@ copy .env.example .env
 
 ### 2. Get the dataset (177 MB from Kaggle)
 
-The raw dataset is not committed (~493 MB unzipped). Only needed if you want
-to regenerate `data/processed/*` from scratch — the processed artifacts
+The raw dataset is not committed (~493 MB unzipped). Only needed if you
+want to regenerate `data/processed/*` from scratch. The processed artifacts
 that `make demo` needs are already committed.
 
 - https://www.kaggle.com/datasets/thoughtvector/customer-support-on-twitter → Download → unzip
@@ -158,7 +159,7 @@ make ui           # or:  python serve.py
 python serve.py
 ```
 
-Then open http://127.0.0.1:8000 — Spotify-styled pipeline visualisation.
+Then open http://127.0.0.1:8000 for the Spotify-styled pipeline visualisation.
 
 ## Design
 
@@ -169,15 +170,19 @@ Four stages per tweet, two of which call an LLM:
 3. **Draft** — GPT-OSS 120B writes a reply grounded in the retrieved pairs and cites which retrieved thread IDs it drew from.
 4. **Decide** — deterministic Python rules pick auto vs escalate. Rules include: low classifier confidence, low retrieval similarity, and a regex over sensitive keywords (refund / legal / hack / minor / threat).
 
-Judge is `openai/gpt-oss-20b` on Groq — a smaller model than the drafter (`gpt-oss-120b`). Both are OpenAI open-weights so the family is shared; what this means for reply-quality scores is discussed in REPORT §7 and §9, where the judge is validated against 50 blind human ratings.
+Judge is `openai/gpt-oss-20b` on Groq, a smaller model than the drafter
+(`gpt-oss-120b`). Both are OpenAI open-weights so the family is shared;
+what this means for reply-quality scores is discussed in REPORT §7 and §9,
+where the judge is validated against 50 blind human ratings.
 
 Embeddings are `sentence-transformers/all-MiniLM-L6-v2` (384-dim). In the
-hosted demo the same model runs **in-browser** via `@huggingface/transformers`,
-so the web server stays a thin numpy cosine-search service (no torch in the
-web process — keeps Render's free 512 MB limit happy). The CLI/eval path still
-embeds locally with the full `sentence-transformers` package. Retrieval is
-`numpy` cosine similarity over the ~40k embedding matrix — a vector database
-is not needed at this scale.
+hosted demo the same model runs **in-browser** via
+`@huggingface/transformers`, so the web server stays a thin numpy
+cosine-search service and never imports torch. That's what keeps it under
+Render's 512 MB free-tier limit. The CLI/eval path still embeds locally
+with the full `sentence-transformers` package. Retrieval is `numpy` cosine
+similarity over the ~40k embedding matrix. A vector database is not needed
+at this scale.
 
 Every LLM call is cached to `data/processed/llm_cache.sqlite` keyed on `SHA256(provider|model|prompt|schema)`, so `make demo` reproduces the same numbers across runs and iteration is free after the first pass.
 
@@ -198,24 +203,24 @@ Every LLM call is cached to `data/processed/llm_cache.sqlite` keyed on `SHA256(p
 ## Interactive demo
 
 `make ui` (macOS/Linux) or `python serve.py` (any OS) starts a FastAPI server
-+ a Spotify-themed static UI at http://127.0.0.1:8000. Pipeline runs the four
-stages sequentially (4 dedicated endpoints), animates through a
-checkpoint-style rail, and shows the real retrieved past tweets + Spotify
+plus a Spotify-themed static UI at http://127.0.0.1:8000. The pipeline runs
+the four stages sequentially (four dedicated endpoints), animates through a
+checkpoint-style rail, and shows the real retrieved past tweets and Spotify
 replies so grounding is visible, not implied.
 
-The bottom-of-page "Evaluation benchmark" panel loads the batch-evaluation
+The bottom-of-page "Evaluation benchmark" panel loads batch-evaluation
 results from `eval/results/headline.json`, so the UI shows the same numbers
-the CLI does — no drift.
+the CLI does. No drift.
 
-Idle state — sample-tweet chips, the pipeline rail waiting to run, and the
-n=100 benchmark table pinned at the bottom:
+Idle state: sample-tweet chips, the pipeline rail waiting to run, and the
+n=100 benchmark table pinned at the bottom.
 
 ![Idle UI](ui/screenshots/idle.png)
 
-After clicking Run agent — each pipeline stage lights up sequentially, the
-retrieved past complaints and Spotify's real replies appear inline, the
-drafted reply shows its `grounded_in` citations, and the decide step shows
-the exact rule that fired:
+After clicking Run agent, each pipeline stage lights up sequentially. The
+retrieved past complaints and Spotify's real replies appear inline. The
+drafted reply shows its `grounded_in` citations. The decide step shows
+the exact rule that fired.
 
 ![Pipeline running](ui/screenshots/pipeline.png)
 
