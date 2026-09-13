@@ -1,12 +1,6 @@
 import json
 import random
 
-import numpy as np
-import pandas as pd
-from sentence_transformers import SentenceTransformer
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
-
 from src import config
 
 INTENTS: list[dict] = [
@@ -66,6 +60,12 @@ INTENTS: list[dict] = [
 
 
 def build_taxonomy() -> None:
+    import numpy as np
+    import pandas as pd
+    from sentence_transformers import SentenceTransformer
+    from sklearn.cluster import KMeans
+    from sklearn.metrics import silhouette_score
+
     df = pd.read_parquet(config.THREADS_PARQUET)
     df["month"] = pd.to_datetime(df["created_at"], errors="coerce").dt.to_period("M")
 
@@ -114,7 +114,9 @@ def build_taxonomy() -> None:
     _write_definitions()
 
 
-def _label_all_threads(df: pd.DataFrame, model: SentenceTransformer) -> None:
+def _label_all_threads(df, model) -> None:
+    import numpy as np
+
     all_vecs = model.encode(
         df["customer_first_text"].tolist(), show_progress_bar=True, normalize_embeddings=True
     )
@@ -126,9 +128,9 @@ def _label_all_threads(df: pd.DataFrame, model: SentenceTransformer) -> None:
     print(f"labeled {len(df)} threads → {config.THREADS_PARQUET}")
 
 
-def _intent_centroid(
-    name: str, vecs: np.ndarray, df: pd.DataFrame, model: SentenceTransformer
-) -> np.ndarray:
+def _intent_centroid(name: str, vecs, df, model):
+    import numpy as np
+
     # ponytail: seed centroid = embedding of the intent definition; refine only if per-intent recall is bad
     definition = next(i["definition"] for i in INTENTS if i["name"] == name)
     return model.encode([f"{name}: {definition}"], normalize_embeddings=True)[0]

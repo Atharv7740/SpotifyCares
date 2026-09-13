@@ -19,12 +19,14 @@ Provider = Literal["gemini", "groq"]
 
 class LLMClient:
     def __init__(self) -> None:
-        gkey = os.environ.get("GOOGLE_API_KEY")
         qkey = os.environ.get("GROQ_API_KEY")
-        if not gkey or not qkey:
-            raise RuntimeError("GOOGLE_API_KEY and GROQ_API_KEY must be set in .env")
-        self._gemini = genai.Client(api_key=gkey)
+        if not qkey:
+            raise RuntimeError("GROQ_API_KEY must be set in .env")
         self._groq = Groq(api_key=qkey)
+        self._gemini = None
+        gkey = os.environ.get("GOOGLE_API_KEY")
+        if gkey:
+            self._gemini = genai.Client(api_key=gkey)
         config.CACHE_DB.parent.mkdir(parents=True, exist_ok=True)
         self._db = sqlite3.connect(config.CACHE_DB, timeout=10.0, check_same_thread=False)
         self._db.execute("PRAGMA journal_mode=WAL")
@@ -79,6 +81,8 @@ class LLMClient:
         return hashlib.sha256(s.encode()).hexdigest()
 
     def _call_gemini(self, prompt: str, model: str, schema: dict | None) -> dict:
+        if self._gemini is None:
+            raise RuntimeError("GOOGLE_API_KEY not set; cannot call gemini provider")
         cfg = None
         if schema is not None:
             cfg = types.GenerateContentConfig(
@@ -142,11 +146,14 @@ class LLMClient:
 def _self_check() -> None:
     c = LLMClient()
     schema = {"type": "object", "properties": {"msg": {"type": "string"}}, "required": ["msg"]}
-    r1 = c.generate(
-        'Reply as JSON: {"msg": "hello"}', "gemini", config.CLASSIFIER_MODEL[1], schema
-    )
-    assert r1.get("msg"), f"gemini bad response: {r1}"
-    print(f"gemini ok: {r1['msg']}")
+    if os.environ.get("GOOGLE_API_KEY"):
+        r1 = c.generate(
+            'Reply as JSON: {"msg": "hello"}', "gemini", config.CLASSIFIER_MODEL[1], schema
+        )
+        assert r1.get("msg"), f"gemini bad response: {r1}"
+        print(f"gemini ok: {r1['msg']}")
+    else:
+        print("gemini: skipped (no GOOGLE_API_KEY)")
     r2 = c.generate(
         'Reply as JSON with key "msg" set to "hi"',
         "groq",

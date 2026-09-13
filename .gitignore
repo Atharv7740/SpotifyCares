@@ -1,0 +1,27 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.DS_Store
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+*.egg-info/
+build/
+dist/
+
+# raw dataset — reviewer downloads from Kaggle themselves (~493MB)
+data/raw/
+
+# transient SQLite journal files (regenerated at runtime)
+*.sqlite-shm
+*.sqlite-wal
+
+# runtime LLM response cache (regenerated locally; not committed)
+data/processed/llm_cache.sqlite
+
+# per-run LLM call log (cache DB has the same info in reproducible form)
+data/processed/llm_calls.jsonl
+
+# internal planning docs, not part of the submission
+docs/

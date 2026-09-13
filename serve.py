@@ -120,6 +120,11 @@ def _wrap(result: dict, t0: float) -> dict:
     }
 
 
+@app.get("/healthz")
+def healthz() -> dict:
+    return {"status": "ok", "service": "spotifycares"}
+
+
 @app.get("/api/metrics")
 def metrics_endpoint() -> dict:
     headline_json = config.EVAL_RESULTS / "headline.json"
@@ -168,4 +173,5 @@ if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", 8000))
     host = os.environ.get("HOST", "0.0.0.0")
+    print(f"SpotifyCares listening on {host}:{port} (health: http://127.0.0.1:{port}/healthz).")
     uvicorn.run(app, host=host, port=port)

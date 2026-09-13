@@ -1,14 +1,14 @@
-import numpy as np
-import pandas as pd
-from rank_bm25 import BM25Okapi
-from sentence_transformers import SentenceTransformer
-
 from src import config
 
 _index: dict | None = None
 
 
 def _load() -> dict:
+    import numpy as np
+    import pandas as pd
+    from rank_bm25 import BM25Okapi
+    from sentence_transformers import SentenceTransformer
+
     global _index
     if _index is not None:
         return _index
@@ -29,6 +29,10 @@ def _load() -> dict:
 
 
 def _build() -> None:
+    import numpy as np
+    import pandas as pd
+    from sentence_transformers import SentenceTransformer
+
     df = pd.read_parquet(config.THREADS_PARQUET)
     model = SentenceTransformer(config.EMBED_MODEL)
     vecs = model.encode(
@@ -42,6 +46,8 @@ def _build() -> None:
 
 
 def top_k_cosine(query: str, k: int = 3, filter_intent: str | None = None) -> list[dict]:
+    import numpy as np
+
     idx = _load()
     qv = idx["model"].encode([query], normalize_embeddings=True)[0].astype(np.float32)
     sims = idx["vecs"] @ qv
@@ -63,6 +69,8 @@ def top_k_cosine(query: str, k: int = 3, filter_intent: str | None = None) -> li
 
 
 def top_k_bm25(query: str, k: int = 3) -> list[dict]:
+    import numpy as np
+
     idx = _load()
     scores = idx["bm25"].get_scores(query.lower().split())
     top = np.argsort(-scores)[:k]

@@ -1,0 +1,9 @@
+{
+  "brand": "SpotifyCares",
+  "n_threads": 40834,
+  "n_brand_reply_tweets": 43243,
+  "median_customer_text_len": 86,
+  "median_brand_reply_len": 108,
+  "date_min": "Fri Apr 07 10:36:18 +0000 2017",
+  "date_max": "Wed Sep 27 21:58:44 +0000 2017"
+}

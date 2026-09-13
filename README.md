@@ -31,6 +31,12 @@ Full results in `eval/results/headline.md` and `eval/results/headline.json`.
 Confusion matrix in `eval/results/confusion.json`. Cost + latency
 breakdown in `eval/results/cost_latency.json`.
 
+## Live demo
+
+Deployed at **https://spotifycares.onrender.com** (Render free tier — the service
+cold-starts after ~15 min idle, and the first query after a cold start downloads the
+MiniLM embedding model, so the first run of the agent is slower than subsequent ones).
+
 ## Reproduce in <15 minutes
 
 Prereqs: Python 3.12+, ~2 GB free disk.
