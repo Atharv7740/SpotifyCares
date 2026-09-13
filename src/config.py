@@ -57,7 +57,7 @@ SENSITIVE_PATTERNS = [
 
 SEED = 42
 
-# ponytail: pricing hardcoded per public rates; refresh if Google/Groq change them
+# ponytail: pricing hardcoded per public rates; refresh if Groq changes them
 PRICING_PER_TOKEN = {
     "openai/gpt-oss-120b": {"in": 0.0, "out": 0.0},
     "openai/gpt-oss-20b": {"in": 0.0, "out": 0.0},

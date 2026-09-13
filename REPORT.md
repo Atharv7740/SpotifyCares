@@ -58,7 +58,7 @@ Escalation triggers (checked in order):
 - `intent == "other"` → `unknown_intent`
 - classifier confidence < 0.6 → `low_classifier_confidence`
 - top retrieval similarity < 0.55 → `no_similar_past_case`
-- regex hit on `refund|sue|lawyer|legal|hack|fraud|minor|child|kid|threat|suicide|unauthori[sz]ed` → `sensitive_keyword:<match>`
+- regex hit on `refund|sue|lawyer|legal|hack|fraud|minor|child|kid|threat|suicide|unauthori[sz]ed|under 1[38]|dying` → `sensitive_keyword:<match>`
 - draft confidence < 0.5 → `low_draft_confidence`
 
 Rules are checked in order; first hit wins. Every escalation records the specific rule fired, so any decision is auditable.
@@ -102,11 +102,11 @@ truncates all systems to the nearest multiple of 10 based on the smallest
 completed count, so every row below is scored on the same set of tweets.
 Numbers are exactly as produced by the eval script.
 
-| system  | intent acc | intent macro-F1 | reply (judge avg) | escalation F1 | cost / 1k | p50 draft latency |
-|---------|-----------:|----------------:|------------------:|--------------:|----------:|------------------:|
-| trivial | 0.30       | 0.06            | 3.49              | 0.69          | $0.00     | 5 ms              |
-| strong  | 0.48       | 0.49            | 4.73              | 0.17          | $0.00     | 40 ms             |
-| ours    | **0.79**   | **0.78**        | 4.04              | 0.49          | free tier | 3183 ms           |
+| system  | intent acc | intent macro-F1 | reply (judge avg) | escalation F1 | cost / 1k | p50 latency |
+|---------|-----------:|----------------:|------------------:|--------------:|----------:|------------:|
+| trivial | 0.30       | 0.06            | 3.49              | 0.69          | $0.00     | ~5 ms       |
+| strong  | 0.48       | 0.49            | 4.73              | 0.17          | $0.00     | ~40 ms      |
+| ours    | **0.79**   | **0.78**        | 4.04              | 0.49          | free tier | ≈8400 ms    |
 
 - Ours leads Intent Acc by 31 points over Strong and 49 over Trivial. Macro-F1 gap is similar (+29 over Strong, +72 over Trivial).
 - Strong's higher Reply (judge) score of 4.73 reflects that its reply is Spotify's actual past reply reused verbatim — see §7 for the caveat this puts on the column. On any new tweet where the reused past reply is a poor fit for the current context, Strong is silently wrong; its 0.48 intent accuracy is the honest measure of that mismatch rate.
@@ -138,6 +138,15 @@ Confusion matrix at `eval/results/confusion.json`. Full cost + latency at `eval/
   breakdown for ours (3.71 / 4.10 / 4.01 / 4.32) should be read with
   these caveats in mind — the aggregate reply-quality average leans on
   the more reliable dimensions.
+- **The judge scores against one reference; the draft sees three.**
+  The drafting prompt receives all top-3 retrieved pairs, but
+  `eval/judge.py` renders only `retrieved[0]` into the judge prompt (a
+  cost decision: three refs tripled judge tokens without moving scores
+  on a spot-check). So a reply correctly grounded in example #2 or #3
+  can be marked down on groundedness. The 50 human ratings were done
+  against all three references, which partly explains the weak
+  groundedness κ (0.34) — judge and human score against different
+  reference sets.
 - **n=100 for the judge eval is meaningful but not the full 200.**
   Confidence intervals on per-system averages are ±0.10 at n=100 —
   tighter than the earlier pass at a smaller n. The intent-accuracy gap
@@ -232,9 +241,10 @@ implementation in `eval/judge_validation.py`; output in
 ## 10. Cost and latency
 
 **Total dollar spend during this project: $0.** All LLM calls ran on
-Groq's free tier across four models (`openai/gpt-oss-120b` for
-classify/draft, `openai/gpt-oss-20b` for judge, `qwen/qwen3.8-27b` and
-`groq/compound-mini` used earlier in iteration).
+Groq's free tier across five models (`openai/gpt-oss-120b` for
+classify/draft, `openai/gpt-oss-20b` for judge, `qwen/qwen3.8-27b`,
+`qwen/qwen3.6-27b` (3 calls), and `groq/compound-mini` used earlier in iteration —
+see the per-model call counts in `eval/results/cost_latency.json`).
 
 Cost per 1000 auto-handled tweets on production traffic: **$0.00** at
 free tier. On Groq's paid Dev tier ($0.15 / M input tokens, $0.60 / M
@@ -243,15 +253,14 @@ output tokens for gpt-oss-120b), the per-decision cost would be
 a $2/human-ticket cost baseline: any non-trivial auto-handle rate
 clears it.
 
-Latency (`eval/results/cost_latency.json`):
-- Classify (gpt-oss-120b): p50 **3183 ms**, p95 7091 ms
-- Draft (gpt-oss-120b): measured together with classify on the same model instance
-- Retrieve (local numpy cosine): p50 **8 ms**
-- Judge (gpt-oss-20b, offline only): p50 ~1200 ms
+Latency (`eval/results/cost_latency.json`, n=100 decisions, cold cache, per model):
+- `openai/gpt-oss-120b` (serves both classify and draft — two calls per tweet): p50 **4219 ms**, p95 8908 ms
+- Retrieve (local numpy cosine): ~8 ms per query (local approximation, not in the JSON)
+- Judge (`openai/gpt-oss-20b`, offline only): p50 **4579 ms**, p95 8019 ms
 
-Real end-to-end p50 for `ours` in the live pipeline is roughly
-**3-5 seconds per tweet** on a warm cache. Not customer-perceptible for
-tweet response times (customers expect minutes), but the batch eval
+Real end-to-end for `ours` in the live pipeline is roughly **8-10
+seconds per tweet cold** (two 120b calls at p50), milliseconds on a
+warm cache. Not customer-perceptible for tweet response times (customers expect minutes), but the batch eval
 runtime is dominated by these calls.
 
 ## 11. Safety
@@ -265,7 +274,7 @@ checked in order, each recording the rule that fired:
 5. draft confidence < 0.5 → `low_draft_confidence`
 
 The sensitive keyword regex is deliberately aggressive:
-`refund|sue|lawyer|legal|hack|fraud|minor|child|kid|threat|suicide|unauthori[sz]ed`.
+`refund|sue|lawyer|legal|hack|fraud|minor|child|kid|threat|suicide|unauthori[sz]ed|under 1[38]|dying`.
 Yes, "kid" false-positives on "my kid loves the app" (see §8) — I chose that
 precision cost knowingly. Missing a refund or a legal complaint has an
 asymmetric downside; over-escalating a happy user does not.
@@ -321,4 +330,4 @@ Ranked by expected impact:
 
 ---
 
-_Everything above is reproducible from `git clone && make setup && make full-eval` with the golden set committed and the LLM cache included in the repo._
+_Everything above is reproducible from `git clone && make setup && make full-eval` with the golden set committed. The LLM cache (`data/processed/llm_cache.sqlite`) is gitignored and rebuilds locally on first run — one round of free-tier Groq tokens — after which reruns on the same machine are byte-identical._

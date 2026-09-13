@@ -20,9 +20,10 @@ Target was ~25 per intent so per-class F1 would have a floor to stand on.
 Actual result is uneven — `cancel_refund` is genuinely rare in the data
 (5/200). Considered keyword-filtering to force more in, decided not to
 because I wanted the class counts to reflect the real inbox shape.
-`other` came out high (53/200) because I kept mid-thread fragments,
+`other` initially came out high (53/200) because I kept mid-thread fragments,
 non-English and hostile one-liners in the sample rather than filtering
-them — the escalation path needs to see these in eval.
+them — the escalation path needs to see these in eval. (Final 33/200
+after the intent broadening described in the addendum below.)
 
 Seed = 42 for reproducibility. Anyone re-running `tools/label.py` from
 scratch gets the same starting sample.

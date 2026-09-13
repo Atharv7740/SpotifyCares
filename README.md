@@ -9,11 +9,16 @@ Take-home for the Hiver SDE Intern application. A Python service that classifies
 Evaluation was run on **n=100** subset of the 200-tweet golden set. Full
 golden set is committed. See `REPORT.md` §6 and §7 for the details.
 
-| System        | Intent Acc | Intent macro-F1 | Reply (judge 1-5) | Escalation F1 | Cost / 1k | P50 draft latency |
-|---------------|-----------:|----------------:|------------------:|--------------:|----------:|------------------:|
-| Trivial       |       0.30 |            0.06 |              3.49 |          0.69 |     $0.00 |               5 ms |
-| Strong (BM25) |       0.48 |            0.49 |              4.73 |          0.17 |     $0.00 |              40 ms |
-| Ours          |   **0.79** |        **0.78** |              4.04 |          0.49 | free tier |            3183 ms |
+| System        | Intent Acc | Intent macro-F1 | Reply (judge 1-5) | Escalation F1 | Cost / 1k | P50 latency |
+|---------------|-----------:|----------------:|------------------:|--------------:|----------:|------------:|
+| Trivial       |       0.30 |            0.06 |              3.49 |          0.69 |     $0.00 |      ~5 ms  |
+| Strong (BM25) |       0.48 |            0.49 |              4.73 |          0.17 |     $0.00 |     ~40 ms  |
+| Ours          |   **0.79** |        **0.78** |              4.04 |          0.49 | free tier |   ≈8400 ms  |
+
+Latency cells: trivial/strong are local approximations (no network
+calls); ours derives from `eval/results/cost_latency.json` — two
+`gpt-oss-120b` calls per decision at p50 4219 ms each. Details in
+REPORT.md §10.
 
 Ours leads on intent classification by 31 points on Intent Acc and 29
 points on Macro-F1 versus the Strong (BM25) baseline. Strong is ahead on

@@ -18,7 +18,7 @@ Non-obvious choices made during this build. Format: decision → why → what it
    384-dim, ~90 MB download, runs on CPU in the venv. Free, offline, deterministic. Cost: 90 MB one-time download; would revisit if we needed multilingual embeddings.
 
 6. **SQLite-backed LLM response cache, keyed on SHA-256(provider|model|prompt|schema).**
-   Every LLM call is deduplicated by content, and cached responses are committed with the repo so `make demo` reproduces the same numbers across machines without re-hitting Groq. Cost: cache DB is ~700 KB for the current eval; reviewers regenerating it from a cold state would spend one round of free-tier tokens on the first run.
+    Every LLM call is deduplicated by content, so reruns on the same machine are free and byte-identical after the first pass. Cost: the cache DB (`data/processed/llm_cache.sqlite`) regenerates locally and is gitignored — a fresh clone spends one round of free-tier Groq tokens on its first run (~100 calls for the 20-tweet `make demo`), and identical numbers hold across runs sharing a cache, not across cold machines.
 
 7. **Rule-based escalation only, no LLM in the decision path.**
    Escalation is safety-critical and must be deterministic + auditable + testable. Letting an LLM decide not to escalate a refund tweet is a strictly worse failure mode than the opposite. Cost: regex over-triggers on ambiguous "kid"/"child" — logged as a failure mode in the report.
@@ -63,5 +63,5 @@ Non-obvious choices made during this build. Format: decision → why → what it
 14. **Cost + latency dashboard reported alongside quality metrics.**
     Cost per decision and p50/p95 latency are the framing an operator of a support system actually cares about, and framing quality numbers alone would obscure the trade-off. Chose the dashboard over a red-team suite and a shadow-agent consistency check — comparable effort, and this ties directly to the pipeline output. Cost: red-team coverage is not in this build; it's the fifth item in the "one more week" list.
 
-15. **Reproducibility strategy: committed cache + graceful truncation.**
-    `make demo` runs the eval on a 20-example subset from the committed LLM cache in under a minute. The larger run used `--subset 100`; `eval/run_eval.py` clips all systems to the smallest completed multiple of 10 so a free-tier daily-token cap on the judge model can't leave the numbers in an unaligned state. Both runs are reproducible across machines from the SQLite call cache. Cost: the reviewer still needs their own free Groq API key, and the first-time cache warm-up on a completely cold system would incur one round of tokens.
+15. **Reproducibility strategy: local cache + graceful truncation.**
+    `make demo` runs the eval on a 20-example subset; on a warm cache it finishes in under a minute with byte-identical numbers. The larger run used `--subset 100`; `eval/run_eval.py` clips all systems to the smallest completed multiple of 10 so a free-tier daily-token cap on the judge model can't leave the numbers in an unaligned state. Cost: the reviewer still needs their own free Groq API key, and the first run on a fresh clone warms the (gitignored) cache with one round of tokens — identical numbers hold across runs sharing a cache, not across cold machines.
