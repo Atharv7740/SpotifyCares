@@ -3,6 +3,7 @@ import { pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers
 const $ = (id) => document.getElementById(id);
 
 const EMBED_MODEL = "Xenova/all-MiniLM-L6-v2";
+const MODEL_LABEL = "all-MiniLM-L6-v2";
 const _embedDtype = "fp32";
 let _embedPromise = null;
 
@@ -167,34 +168,161 @@ async function embedTweet(text) {
   return Array.from(data.data);
 }
 
+// ---- readiness gate -------------------------------------------------------
+// "Run agent" needs two independent things: a backend that has its retrieval
+// index in memory, and an embedding model loaded in this browser. Both are
+// started in parallel; the button unlocks only when both are done.
+
+let _ready = false;
+
+function gate({ text, why, pct, state }) {
+  const g = $("gate");
+  if (text !== undefined) $("gate-text").textContent = text;
+  if (why !== undefined) $("gate-why").innerHTML = why;
+  g.classList.toggle("is-indeterminate", pct === null);
+  if (pct != null) $("gate-fill").style.width = `${pct}%`;
+  g.classList.toggle("is-ready", state === "ready");
+  g.classList.toggle("is-failed", state === "failed");
+}
+
+async function waitForBackend() {
+  // Render's free tier sleeps after 15 min idle, so the first request may hang
+  // for ~30-60 s. index_ready tells us the server can actually serve a retrieval,
+  // not merely that the process is up.
+  const MAX = 120;
+  for (let i = 0; i < MAX; i++) {
+    try {
+      const r = await fetch("/healthz", { cache: "no-store" });
+      if (r.ok) {
+        const h = await r.json();
+        if (h.index_ready) return;
+        // Responding but the index never finished: the preload thread failed.
+        // /api/retrieve still loads it lazily, so don't block the user forever —
+        // let them through and surface the error there if it recurs.
+        if (i >= 60) return;
+      }
+    } catch (_) {
+      // service still waking — keep polling
+    }
+    if (i === 3) {
+      gate({
+        why: "Render's free tier spins the server down after 15 minutes of inactivity. Waking it takes ~30–60 seconds.",
+      });
+    }
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+}
+
+async function loadEmbedder(onPct) {
+  // progress_callback fires per file; sum bytes across whichever files are
+  // actually fetched. Cached files report no progress at all, which is why the
+  // bar can jump straight to done on a repeat visit.
+  const files = new Map();
+  let sawProgress = false;
+  _embedPromise = pipeline("feature-extraction", EMBED_MODEL, {
+    dtype: _embedDtype,
+    progress_callback: (p) => {
+      if (p.status !== "progress" || !p.total) return;
+      sawProgress = true;
+      files.set(p.file, { loaded: p.loaded, total: p.total });
+      let loaded = 0;
+      let total = 0;
+      for (const f of files.values()) {
+        loaded += f.loaded;
+        total += f.total;
+      }
+      if (total) onPct((loaded / total) * 100, loaded, total);
+    },
+  });
+  await _embedPromise;
+  return sawProgress;
+}
+
 async function warmup() {
-  const wrap = $("warmup");
-  const dot = $("warmup-dot");
-  const txt = $("warmup-text");
-  wrap.style.display = "block";
+  _ready = false;
+  const btn = $("run");
+  btn.disabled = true;
+  btn.textContent = "Preparing…";
+  $("gate-retry").classList.add("hidden");
+  $("gate").classList.remove("gate-done");
   const t0 = performance.now();
 
-  txt.textContent = "waking service on Render free tier (first visit only, up to ~30 s)…";
-  try {
-    await fetch("/healthz", { cache: "no-store" });
-  } catch (_) {}
+  gate({
+    text: "waking the server…",
+    why: "Checking the backend is awake and has its search index loaded.",
+    pct: null,
+  });
 
-  txt.textContent = "backend ready. downloading embedder (all-MiniLM-L6-v2, ~90 MB, one-time)…";
+  // Both start now — the model download must not wait on a sleeping backend.
+  const backend = waitForBackend();
+  const embedder = loadEmbedder((pct, loaded, total) => {
+    if (_ready) return;
+    // Only the files actually fetched report progress. If the weights came from
+    // cache, `total` is just a few KB of config — showing "0 MB, 100%" then
+    // would be nonsense, so describe it honestly instead.
+    const isFullDownload = total > 1e6;
+    gate({
+      text: isFullDownload
+        ? `downloading the embedding model — ${Math.round(pct)}%`
+        : "loading the embedding model…",
+      why: isFullDownload
+        ? `${MODEL_LABEL} (${(total / 1e6).toFixed(0)} MB) runs in your browser, so your text never leaves this machine. One-time download — cached for future visits.`
+        : `${MODEL_LABEL} runs in your browser, so your text never leaves this machine. Mostly cached already.`,
+      pct,
+    });
+  });
+
   try {
-    await getEmbedder();
+    await backend;
+  } catch (_) {
+    // waitForBackend retries forever; reaching here would be a programming error
+  }
+
+  let cached = false;
+  try {
+    cached = !(await embedder);
   } catch (e) {
-    dot.style.background = "#ef4444";
-    txt.textContent = "embedder load failed — Run agent will retry.";
+    gate({
+      text: "couldn't load the embedding model",
+      why: `${esc(e.message || String(e))}<br>Retrieval needs it, so Run agent stays disabled. Check your connection and retry.`,
+      pct: 100,
+      state: "failed",
+    });
+    $("gate-retry").classList.remove("hidden");
+    btn.textContent = "Unavailable";
     return;
   }
 
-  const secs = Math.round((performance.now() - t0) / 1000);
-  dot.style.background = "#22c55e";
-  txt.textContent = `ready in ${secs}s — click Run agent.`;
-  setTimeout(() => (wrap.style.display = "none"), 4500);
+  gate({
+    text: "warming up the model…",
+    why: "Running one throwaway embedding so your first real run isn't slowed by start-up cost.",
+    pct: 100,
+  });
+  try {
+    await embedTweet("warm up");
+  } catch (_) {
+    // non-fatal: the model loaded, so the first real run just pays the init cost
+  }
+
+  _ready = true;
+  const secs = ((performance.now() - t0) / 1000).toFixed(1);
+  gate({
+    text: "ready",
+    why: cached
+      ? `Model loaded from browser cache in ${secs}s.`
+      : `Ready in ${secs}s. The model is cached now, so your next visit skips the download.`,
+    pct: 100,
+    state: "ready",
+  });
+  btn.disabled = false;
+  btn.textContent = "Run agent";
+  setTimeout(() => $("gate").classList.add("gate-done"), 4000);
 }
 
 async function runAgent() {
+  // defence in depth — the button is disabled until warmup() completes, but a
+  // half-loaded embedder would stall silently at the Retrieve step.
+  if (!_ready) return;
   const tweet = $("tweet").value.trim();
   if (!tweet) return;
   const btn = $("run");
@@ -349,6 +477,10 @@ function esc(s) {
 }
 
 $("run").addEventListener("click", runAgent);
+$("gate-retry").addEventListener("click", () => {
+  _embedPromise = null; // drop the rejected promise so the model is re-fetched
+  warmup();
+});
 loadSamples();
 loadMetrics();
 warmup();

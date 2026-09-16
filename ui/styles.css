@@ -154,6 +154,33 @@ pre { margin: 0; background: var(--bg-elev); border: 1px solid var(--border);
   padding: 16px; border-radius: var(--radius); font-size: 12px; overflow-x: auto;
   color: var(--text-dim); font-family: ui-monospace, SF Mono, Menlo, monospace; line-height: 1.6; }
 
+/* readiness gate — shown while the backend wakes and the embedder downloads.
+   Run agent stays disabled until this reaches the ready state. */
+#gate { margin-top: 12px; }
+#gate.gate-done { display: none; }
+.gate-head { display: flex; align-items: center; gap: 8px; font-size: 12px;
+  color: var(--text-dim); font-family: ui-monospace, SF Mono, Menlo, monospace; }
+.gate-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber);
+  flex: none; animation: gate-pulse 1.4s ease-in-out infinite; }
+#gate.is-ready .gate-dot { background: var(--green); animation: none;
+  box-shadow: 0 0 8px var(--green); }
+#gate.is-failed .gate-dot { background: var(--red); animation: none; }
+@keyframes gate-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+.gate-bar { height: 4px; background: var(--bg); border-radius: 2px; overflow: hidden;
+  margin-top: 8px; }
+.gate-bar > span { display: block; height: 100%; width: 0%; background: var(--amber);
+  border-radius: 2px; transition: width 0.3s ease; }
+#gate.is-ready .gate-bar > span { background: var(--green); }
+#gate.is-failed .gate-bar > span { background: var(--red); }
+/* indeterminate: used while waking the backend, where there is no percentage to show */
+#gate.is-indeterminate .gate-bar > span { width: 35%; animation: gate-slide 1.5s ease-in-out infinite; }
+@keyframes gate-slide { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
+
+.gate-why { margin-top: 6px; line-height: 1.5; }
+.gate-retry { margin-top: 10px; padding: 6px 16px; font-size: 12px; }
+.gate-retry.hidden { display: none; }
+
 @media (max-width: 900px) {
   main { grid-template-columns: 1fr; }
 }

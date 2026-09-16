@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <title>Hiver × SpotifyCares — Support Agent</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="/static/styles.css?v=4" />
+  <link rel="stylesheet" href="/static/styles.css?v=5" />
 </head>
 <body>
   <header>
@@ -21,10 +21,15 @@
         <h2>Incoming tweet</h2>
         <div class="chips" id="samples"></div>
         <textarea id="tweet" rows="4" placeholder="@SpotifyCares my premium won't play today…"></textarea>
-        <button id="run">Run agent</button>
-        <div id="warmup" class="tiny" style="margin-top:10px; color:#94a3b8; display:none;">
-          <span id="warmup-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f59e0b;margin-right:6px;vertical-align:middle;"></span>
-          <span id="warmup-text"></span>
+        <button id="run" disabled>Preparing…</button>
+        <div id="gate" aria-live="polite">
+          <div class="gate-head">
+            <span class="gate-dot" id="gate-dot"></span>
+            <span id="gate-text">starting up…</span>
+          </div>
+          <div class="gate-bar"><span id="gate-fill"></span></div>
+          <div class="tiny gate-why" id="gate-why"></div>
+          <button type="button" id="gate-retry" class="gate-retry hidden">Retry</button>
         </div>
       </div>
 
@@ -95,6 +100,6 @@
     <div id="benchmark" class="bench-empty">loading…</div>
   </footer>
 
-  <script type="module" src="/static/app.js?v=9"></script>
+  <script type="module" src="/static/app.js?v=10"></script>
 </body>
 </html>
