@@ -1,6 +1,8 @@
 """FastAPI wrapper around the agent for the demo UI."""
 import json
+import threading
 import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -15,7 +17,37 @@ from src.decide import decide
 from src.draft import draft
 from src.retrieve import top_k_cosine_vec
 
-app = FastAPI(title="Hiver × SpotifyCares")
+_index_ready = False
+
+
+def _preload_index() -> None:
+    """Pull the retrieval index into memory off the request path.
+
+    src.retrieve loads lazily, so without this the ~4 s npz + parquet read lands
+    inside the first visitor's /api/retrieve call. _base_lock makes this safe if a
+    request arrives mid-load.
+    """
+    global _index_ready
+    from src.retrieve import _load_base
+
+    t0 = time.time()
+    try:
+        _load_base()
+        _index_ready = True
+        print(f"retrieval index preloaded in {time.time() - t0:.1f}s")
+    except Exception as e:  # a failure here resurfaces on the first real request
+        print(f"retrieval index preload failed: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # daemon so it never holds up shutdown; /healthz answers immediately either way,
+    # which keeps Render's health check fast.
+    threading.Thread(target=_preload_index, daemon=True).start()
+    yield
+
+
+app = FastAPI(title="Hiver × SpotifyCares", lifespan=lifespan)
 
 
 class TweetIn(BaseModel):
@@ -128,7 +160,9 @@ def _wrap(result: dict, t0: float) -> dict:
 
 @app.get("/healthz")
 def healthz() -> dict:
-    return {"status": "ok", "service": "spotifycares"}
+    # index_ready distinguishes "process is up" from "can actually serve a retrieval";
+    # the UI uses it to decide when to enable Run agent.
+    return {"status": "ok", "service": "spotifycares", "index_ready": _index_ready}
 
 
 @app.get("/api/metrics")

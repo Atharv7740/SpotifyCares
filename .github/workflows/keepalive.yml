@@ -1,0 +1,37 @@
+name: keepalive
+
+# Render's free tier spins a web service down after 15 minutes of inactivity, and the
+# next visitor waits ~30-60 s on Render's own "application loading" splash before our
+# process exists. Pinging /healthz every 10 minutes keeps the instance warm so a
+# reviewer never lands on that screen.
+#
+# Caveats worth knowing (also in README.md):
+#   - GitHub's cron is best-effort and can slip 5-15 min under load. Hence 10 min,
+#     not 14 - a slipped run still lands inside the 15 min idle window.
+#   - Scheduled workflows are auto-disabled after 60 days of repo inactivity.
+#   - Render free allows ~750 instance-hours/month per workspace; 24*31 = 744, so this
+#     fits exactly one always-awake service. If another free service shares the
+#     workspace, narrow the schedule to review hours instead, e.g. "*/10 6-23 * * *".
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping /healthz
+        run: |
+          # --max-time 60: a cold ping is slow by definition - that is the ping doing
+          # its job, not a failure. -f so a 5xx still fails the run.
+          curl -sSf --max-time 60 https://spotifycares.onrender.com/healthz

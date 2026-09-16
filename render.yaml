@@ -2,7 +2,10 @@ services:
   - type: web
     name: hiver-support-agent
     runtime: python
-    buildCommand: pip install -r requirements.txt
+    # requirements-web.txt, not requirements.txt: the serving path never imports
+    # torch / sentence-transformers / sklearn / pandas, and leaving them out keeps the
+    # process under the 512 MB free-tier limit and shortens container start.
+    buildCommand: pip install -r requirements-web.txt
     startCommand: python serve.py
     healthCheckPath: /healthz
     plan: free

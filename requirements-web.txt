@@ -1,0 +1,17 @@
+# Serving-only dependencies for the Render web service.
+#
+# Deliberately excludes torch / sentence-transformers / scikit-learn / pandas: the
+# serving path never imports them (queries are embedded in the visitor's browser and
+# POSTed as a 384-dim vector, then searched with numpy). Keeping them out is what
+# holds the web process under Render's 512 MB free-tier limit, and it makes the
+# container start faster.
+#
+# Use requirements.txt for the CLI / eval path, which does embed locally with torch.
+
+fastapi==0.141.1
+uvicorn==0.52.4
+pydantic==2.12.3
+numpy==1.26.4
+pyarrow==25.0.1
+groq==1.7.0
+python-dotenv==1.2.3

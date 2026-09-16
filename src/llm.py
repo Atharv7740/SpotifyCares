@@ -6,8 +6,6 @@ import time
 from typing import Literal
 
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
 from groq import Groq
 
 from src import config
@@ -26,6 +24,11 @@ class LLMClient:
         self._gemini = None
         gkey = os.environ.get("GOOGLE_API_KEY")
         if gkey:
+            # ponytail: imported here, not at module scope — google.genai pulls in
+            # aiohttp + httpx and costs ~1 s of import on a cold start. The hosted
+            # demo is Groq-only, so it should never pay for it.
+            from google import genai
+
             self._gemini = genai.Client(api_key=gkey)
         config.CACHE_DB.parent.mkdir(parents=True, exist_ok=True)
         self._db = sqlite3.connect(config.CACHE_DB, timeout=10.0, check_same_thread=False)
@@ -85,6 +88,8 @@ class LLMClient:
             raise RuntimeError("GOOGLE_API_KEY not set; cannot call gemini provider")
         cfg = None
         if schema is not None:
+            from google.genai import types
+
             cfg = types.GenerateContentConfig(
                 response_mime_type="application/json",
                 response_schema=schema,
